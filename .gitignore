@@ -1,0 +1,6 @@
+*Noresqa*/
+*venv*/
+__pycache__/
+weights/
+wandb/
+*.csv
