@@ -76,12 +76,11 @@ class RawWaveClassifier(nn.Module):
             x = x.unsqueeze(1)
         x = self.frontend(x)
         x = self.pool(x).squeeze(-1)
+        embeddings = self.proj(x)
 
         if not self.cls_norm:
-            embeddings = self.proj(x)
             logits = self.cls_head(embeddings)
         else:
-            embeddings = self.proj(x)
             E_norm = torch.nn.functional.normalize(embeddings, p=2, dim=1)
             W_norm = torch.nn.functional.normalize(self.cls_head.weight, p=2, dim=1)
             embeddings = E_norm

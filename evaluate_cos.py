@@ -24,7 +24,7 @@ metadata_df = pd.read_csv(METADATA_PATH)
 print(metadata_df.nunique())
 
 queries = []
-embeddings = []
+database = []
 
 for idx, row in tqdm(metadata_df.iterrows(), total=len(metadata_df)):
     if 'VAL' in row['db']:
@@ -41,7 +41,7 @@ for idx, row in tqdm(metadata_df.iterrows(), total=len(metadata_df)):
         wave = wave.unsqueeze(0)
         with torch.no_grad():
             emb, _ = MODEL(wave, return_embed=True)
-        embeddings.append((emb[0], row['mos']))
+        database.append((emb[0], row['mos']))
     if 'TEST' in row['db']:
         if NUM_TEST_ROWS is not None:
             NUM_TEST_ROWS -= 1
@@ -56,8 +56,8 @@ for idx, row in tqdm(metadata_df.iterrows(), total=len(metadata_df)):
         queries.append((emb[0], row['mos']))
 
         
-X_db = torch.stack([e for e, _ in embeddings])  # (N, D)
-mos_db = torch.tensor([m for _, m in embeddings]).to(DEVICE)             # (N,)
+X_db = torch.stack([e for e, _ in database])  # (N, D)
+mos_db = torch.tensor([m for _, m in database]).to(DEVICE)             # (N,)
 # queries
 X_q = torch.stack([e for e, _ in queries]) 
 mos_q = torch.tensor([m for _, m in queries]).to(DEVICE)
