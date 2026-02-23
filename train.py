@@ -103,7 +103,10 @@ if __name__ == "__main__":
     scheduler = SchedulerClass(optimizer, **config['scheduler']['args'])
 
     CriterionClass = load_class(config['criterion']['name'])
-    criterion = CriterionClass(**config['criterion']['args'])
+    if 'args' in config['criterion']:
+        criterion = CriterionClass(**config['criterion']['args'])
+    else:
+        criterion = CriterionClass()
     assert isinstance(criterion, torch.nn.Module)
     
     curr_epoch = 0
