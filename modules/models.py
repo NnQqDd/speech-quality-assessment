@@ -32,7 +32,7 @@ import torch.nn.functional as F
 
 
 class RawWaveClassifier(nn.Module):
-    def __init__(self, num_classes, embed_dim=64, in_channels=1, dropout=0.25, cls_bias=True, cls_norm=False):
+    def __init__(self, num_classes, embed_dim=64, in_channels=1, dropout=0.1, cls_bias=True, cls_norm=False):
         super().__init__()
         # simple conv stack with progressive downsampling
         self.frontend = nn.Sequential(
