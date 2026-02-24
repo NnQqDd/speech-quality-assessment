@@ -1,4 +1,6 @@
+import warnings; warnings.filterwarnings("ignore")
 import os
+import yaml
 import pandas as pd
 import librosa
 from tqdm import tqdm
@@ -6,56 +8,64 @@ import torch
 import numpy as np
 # from torchmetrics.functional import pearson_corrcoef
 from modules.models import *
+from modules.utilities import *
 
 
 DATASET_PATH = '/home/duyn/ActableDuy/datasets/NISQA_Corpus'
 METADATA_PATH = os.path.join(DATASET_PATH, 'NISQA_corpus_file.csv')
+WEIGHT_PATH = "/home/duyn/ActableDuy/speech-quality-assessment/weights/f7qddp8m/best.pth"
+CONFIG_PATH = "/home/duyn/ActableDuy/speech-quality-assessment/weights/f7qddp8m/config.yaml"
 DEVICE = torch.device("cuda")
-MODEL = RawWaveClassifier(num_classes=16)
-# MODEL = RawWaveClassifier(num_classes=16, cls_bias=False, cls_norm=True)
-MODEL.load_state_dict(torch.load("/home/duyn/ActableDuy/speech-quality-assessment/weights/t6fko2em/best.pth"))
-# MODEL.load_state_dict(torch.load("/home/duyn/ActableDuy/speech-quality-assessment/weights/f7qddp8m/best.pth"))
-MODEL.eval()
-MODEL.to(DEVICE)
-NUM_TRAIN_ROWS = None
-NUM_TEST_ROWS = None
+NUM_TRAIN_ROWS = 100
+NUM_TEST_ROWS = 10
 MAE = 0
 MSE = 0
 
+with open(CONFIG_PATH, 'r') as f:
+    config = yaml.safe_load(f)
+ModelClass = load_class(config['model']['name'])
+if 'args' in config['model'] and config['model'] is not None:
+    config['model']['args']['num_classes'] = 16
+    MODEL = ModelClass(**config['model']['args'])
+else:
+    MODEL = ModelClass(num_classes=16)
+assert isinstance(MODEL, torch.nn.Module)
+MODEL.to(DEVICE)
+MODEL.eval()
+
+print(WEIGHT_PATH)
+print(CONFIG_PATH)
+print(DATASET_PATH)
+print(NUM_TRAIN_ROWS)
+print(NUM_TEST_ROWS)
+
 metadata_df = pd.read_csv(METADATA_PATH)
-print(metadata_df.nunique())
+# print(metadata_df.nunique())
 
 queries = []
 database = []
 for idx, row in tqdm(metadata_df.iterrows(), total=len(metadata_df)):
     if 'VAL' in row['db']:
         continue
-
+    if 'TRAIN' in row['db'] and NUM_TRAIN_ROWS is not None:
+        NUM_TRAIN_ROWS -= 1
+    if 'TRAIN' in row['db'] and NUM_TRAIN_ROWS is not None and NUM_TRAIN_ROWS < 0:
+        continue
+    if 'TEST' in row['db'] and NUM_TEST_ROWS is not None:
+        NUM_TEST_ROWS -= 1
+    if 'TEST' in row['db'] and NUM_TEST_ROWS is not None and NUM_TEST_ROWS < 0:
+        continue
+    filepath = os.path.join(DATASET_PATH, row['filepath_deg'])
+    filepath = os.path.join(DATASET_PATH, row['filepath_deg'])
+    wave, _ = librosa.load(filepath, mono=True, sr=16000)
+    wave = torch.from_numpy(wave).to(DEVICE)
+    waves = wave.unsqueeze(0)
+    with torch.no_grad():
+        emb, _ = MODEL(waves, return_embed=True)
     if 'TRAIN' in row['db']:
-        if NUM_TRAIN_ROWS is not None:
-            NUM_TRAIN_ROWS -= 1
-        if NUM_TRAIN_ROWS is not None and NUM_TRAIN_ROWS < 0:
-            continue
-        filepath = os.path.join(DATASET_PATH, row['filepath_deg'])
-        wave, _ = librosa.load(filepath, mono=True, sr=16000)
-        wave = torch.from_numpy(wave).to(DEVICE)
-        wave = wave.unsqueeze(0)
-        with torch.no_grad():
-            emb, _ = MODEL(wave, return_embed=True)
         database.append((emb[0], row['mos']))
     if 'TEST' in row['db']:
-        if NUM_TEST_ROWS is not None:
-            NUM_TEST_ROWS -= 1
-        if NUM_TEST_ROWS is not None and NUM_TEST_ROWS < 0:
-            continue
-        filepath = os.path.join(DATASET_PATH, row['filepath_deg'])
-        wave, _ = librosa.load(filepath, mono=True, sr=16000)
-        wave = torch.from_numpy(wave).to(DEVICE)
-        wave = wave.unsqueeze(0)
-        with torch.no_grad():
-            emb, _ = MODEL(wave, return_embed=True)
         queries.append((emb[0], row['mos']))
-
         
 X_db = torch.stack([e for e, _ in database])  # (N, D)
 mos_db = torch.tensor([m for _, m in database]).to(DEVICE)             # (N,)

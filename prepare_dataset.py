@@ -21,7 +21,7 @@ if __name__ == "__main__":
     for label, group in metadata_df.groupby("label"):
         train, val = train_test_split(
             group,
-            test_size=0.05,
+            test_size=0.1,
             random_state=42,
             shuffle=True
         )
@@ -30,10 +30,25 @@ if __name__ == "__main__":
 
     df_train = pd.concat(train_dfs).reset_index(drop=True)
     df_val   = pd.concat(val_dfs).reset_index(drop=True)
+    
+    test_dfs = []
+    val_dfs = []
+    for label, group in df_val.groupby("label"):
+        val, test = train_test_split(
+            group,
+            test_size=0.5,
+            random_state=42,
+            shuffle=True
+        )
+        val_dfs.append(val)
+        test_dfs.append(test)
+    df_val = pd.concat(val_dfs).reset_index(drop=True)
+    df_test = pd.concat(test_dfs).reset_index(drop=True)
 
     metadata_df = pd.concat([
         df_train.assign(split="train"),
-        df_val.assign(split="valid")
+        df_val.assign(split="valid"),
+        df_test.assign(split="test")
     ])
 
     metadata_df.to_csv("metadata.csv", index=False)
