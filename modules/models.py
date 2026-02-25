@@ -7,8 +7,10 @@ import torchaudio.compliance.kaldi as kaldi
 from transformers import HubertModel, Wav2Vec2Model, WavLMModel
 try:
     from .wespeaker.model import ResNet34
+    from .ecapa_tdnn.model import ECAPA_TDNN
 except:
     from wespeaker.model import ResNet34
+    from ecapa_tdnn.model import ECAPA_TDNN
 
 
 class RawWaveClassifier(nn.Module):
@@ -158,6 +160,32 @@ class Wespeaker34(torch.nn.Module):
             return logits
         return embeddings, logits
     
+
+
+class ECAPA(torch.nn.Module):
+    def __init__(self, num_classes, embed_dim=192, cls_bias=True, cls_norm=False):
+        super().__init__()
+        self.model = ECAPA_TDNN()
+        self.model.fc6 = torch.nn.Linear(in_features=3072, out_features=embed_dim)
+        self.model.bn6 = torch.nn.BatchNorm1d(embed_dim)
+        self.cls_head = torch.nn.Linear(embed_dim, num_classes, bias=cls_bias)
+        self.cls_norm = cls_norm 
+
+
+    def forward(self, waves, return_embed=False):
+        embeddings = self.model(waves)
+        if not self.cls_norm:
+            logits = self.cls_head(embeddings)
+        else:
+            E_norm = torch.nn.functional.normalize(embeddings, p=2, dim=1)
+            W_norm = torch.nn.functional.normalize(self.cls_head.weight, p=2, dim=1)
+            embeddings = E_norm
+            logits = torch.nn.functional.linear(E_norm, W_norm) 
+            
+        if not return_embed:
+            return logits
+        return embeddings, logits
+        
 
 if __name__ == "__main__":
     import librosa
