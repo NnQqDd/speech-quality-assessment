@@ -12,11 +12,11 @@ from modules.utilities import *
 
 DATASET_PATH = '/home/duyn/ActableDuy/datasets/NISQA_Corpus'
 METADATA_PATH = os.path.join(DATASET_PATH, 'NISQA_corpus_file.csv')
-WEIGHT_PATH = "/home/duyn/ActableDuy/speech-quality-assessment/weights/f7qddp8m/best.pth"
-CONFIG_PATH = "/home/duyn/ActableDuy/speech-quality-assessment/weights/f7qddp8m/config.yaml"
+WEIGHT_PATH = "/home/duyn/ActableDuy/speech-quality-assessment/weights/8dpjzh8a/best.pth"
+CONFIG_PATH = "/home/duyn/ActableDuy/speech-quality-assessment/weights/8dpjzh8a/config.yaml"
 DEVICE = torch.device("cuda")
-NUM_TRAIN_ROWS = 100
-NUM_TEST_ROWS = 10
+NUM_TRAIN_ROWS = None
+NUM_TEST_ROWS = None
 MAE = 0
 MSE = 0
 

@@ -3,52 +3,12 @@ from scipy import signal
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import torchaudio.compliance.kaldi as kaldi
 from transformers import HubertModel, Wav2Vec2Model, WavLMModel
-
-
-class EncoderClassifier(torch.nn.Module):
-    def __init__(
-        self,
-        num_classes: int,
-        model_name: str,
-        layer: int | None = None,
-        embed_dim: int = 64,
-        cls_bias=True, cls_norm=False
-    ):
-        super().__init__()
-        if 'wavlm' in model_name:
-            self.model = WavLMModel.from_pretrained("microsoft/wavlm-base")
-        elif 'hubert' in model_name:
-            self.model = HubertModel.from_pretrained("facebook/hubert-base-ls960")
-        elif 'wav2vec2' in model_name:
-            self.model = Wav2Vec2Model.from_pretrained("facebook/wav2vec2-base")
-        else:
-            raise ValueError("What?")
-        self.layer = layer
-        self.cls_head = nn.Linear(self.model.config.hidden_size, num_classes, bias=cls_bias)
-        self.cls_norm = cls_norm
-
-    def forward(self, waveform, return_embed=False):
-        outputs = self.model(
-            waveform,
-            output_hidden_states=self.layer is not None,
-        )
-        if self.layer is not None:
-            hidden = outputs.hidden_states[self.layer]
-        else:
-            hidden = outputs.last_hidden_state
-        embeddings = hidden.mean(dim=1)
-        if not self.cls_norm:
-            logits = self.cls_head(embeddings)
-        else:
-            E_norm = torch.nn.functional.normalize(embeddings, p=2, dim=1)
-            W_norm = torch.nn.functional.normalize(self.cls_head.weight, p=2, dim=1)
-            embeddings = E_norm
-            logits = torch.nn.functional.linear(E_norm, W_norm) 
-            
-        if not return_embed:
-            return logits
-        return embeddings, logits
+try:
+    from .wespeaker.model import ResNet34
+except:
+    from wespeaker.model import ResNet34
 
 
 class RawWaveClassifier(nn.Module):
@@ -103,7 +63,101 @@ class RawWaveClassifier(nn.Module):
         if not return_embed:
             return logits
         return embeddings, logits
+    
 
+class EncoderClassifier(torch.nn.Module):
+    def __init__(
+        self,
+        num_classes: int,
+        model_name: str,
+        layer: int | None = None,
+        embed_dim: int = 64,
+        cls_bias=True, cls_norm=False
+    ):
+        super().__init__()
+        if 'wavlm' in model_name:
+            self.model = WavLMModel.from_pretrained("microsoft/wavlm-base")
+        elif 'hubert' in model_name:
+            self.model = HubertModel.from_pretrained("facebook/hubert-base-ls960")
+        elif 'wav2vec2' in model_name:
+            self.model = Wav2Vec2Model.from_pretrained("facebook/wav2vec2-base")
+        else:
+            raise ValueError("What?")
+        self.layer = layer
+        self.cls_head = nn.Linear(self.model.config.hidden_size, num_classes, bias=cls_bias)
+        self.cls_norm = cls_norm
+
+    def forward(self, waveform, return_embed=False):
+        outputs = self.model(
+            waveform,
+            output_hidden_states=self.layer is not None,
+        )
+        if self.layer is not None:
+            hidden = outputs.hidden_states[self.layer]
+        else:
+            hidden = outputs.last_hidden_state
+        embeddings = hidden.mean(dim=1)
+        if not self.cls_norm:
+            logits = self.cls_head(embeddings)
+        else:
+            E_norm = torch.nn.functional.normalize(embeddings, p=2, dim=1)
+            W_norm = torch.nn.functional.normalize(self.cls_head.weight, p=2, dim=1)
+            embeddings = E_norm
+            logits = torch.nn.functional.linear(E_norm, W_norm) 
+            
+        if not return_embed:
+            return logits
+        return embeddings, logits
+
+
+class Wespeaker34(torch.nn.Module):
+    def __init__(self, num_classes, embed_dim=256, cls_bias=True, cls_norm=False):
+        super().__init__()
+        self.model = ResNet34(feat_dim=80, embed_dim=256, pooling_func='TSTP', two_emb_layer=False)
+        self.model.seg_1 = torch.nn.Linear(in_features=5120, out_features=embed_dim)
+        self.cls_head = torch.nn.Linear(embed_dim, num_classes, bias=cls_bias)
+        self.cls_norm = cls_norm 
+        
+    def compute_fbank(self,
+                      waveforms,
+                      sample_rate=16000,
+                      num_mel_bins=80,
+                      frame_length=25,
+                      frame_shift=10,
+                      cmn=True):
+        B = waveforms.shape[0]
+        feats = []
+        for i in range(B):
+            feat = kaldi.fbank(waveforms[i].unsqueeze(0),
+                               num_mel_bins=num_mel_bins,
+                               frame_length=frame_length,
+                               frame_shift=frame_shift,
+                               sample_frequency=sample_rate,
+                               window_type='hamming')
+            if cmn:
+                feat = feat - torch.mean(feat, 0)
+            feats.append(feat)
+        return torch.stack(feats)
+    
+    def forward(self, pcm, return_embed=False):
+        pcm = torch.clamp(pcm, -1.0, 1.0)
+        pcm = (pcm * 32767)
+        feats = self.compute_fbank(pcm, sample_rate=16000, cmn=True)
+        outputs = self.model(feats)
+        embeddings = outputs[-1]
+        
+        if not self.cls_norm:
+            logits = self.cls_head(embeddings)
+        else:
+            E_norm = torch.nn.functional.normalize(embeddings, p=2, dim=1)
+            W_norm = torch.nn.functional.normalize(self.cls_head.weight, p=2, dim=1)
+            embeddings = E_norm
+            logits = torch.nn.functional.linear(E_norm, W_norm) 
+            
+        if not return_embed:
+            return logits
+        return embeddings, logits
+    
 
 if __name__ == "__main__":
     import librosa

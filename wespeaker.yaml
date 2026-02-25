@@ -25,9 +25,8 @@ dataloaders:
 
 
 model: 
-  name: modules.models.EncoderClassifier
+  name: modules.models.Wespeaker34
   args:
-    model_name: "wavlm"
     cls_bias: True
     cls_norm: False
 
