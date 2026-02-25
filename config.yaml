@@ -27,7 +27,7 @@ dataloaders:
 model: 
   name: modules.models.EncoderClassifier
   args:
-    model_name: "wavlm"
+    model_name: "hubert"
     cls_bias: True
     cls_norm: False
 

@@ -25,8 +25,9 @@ dataloaders:
 
 
 model: 
-  name: modules.models.RawWaveClassifier
+  name: modules.models.EncoderClassifier
   args:
+    model_name: "wav2vec2"
     cls_bias: False
     cls_norm: True
 

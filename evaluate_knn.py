@@ -13,8 +13,8 @@ from modules.utilities import *
 
 DATASET_PATH = '/home/duyn/ActableDuy/datasets/NISQA_Corpus'
 METADATA_PATH = os.path.join(DATASET_PATH, 'NISQA_corpus_file.csv')
-WEIGHT_PATH = "/home/duyn/ActableDuy/speech-quality-assessment/weights/8dpjzh8a/best.pth"
-CONFIG_PATH = "/home/duyn/ActableDuy/speech-quality-assessment/weights/8dpjzh8a/config.yaml"
+WEIGHT_PATH = "/home/duyn/ActableDuy/speech-quality-assessment/weights/9t43vaou/best.pth"
+CONFIG_PATH = "/home/duyn/ActableDuy/speech-quality-assessment/weights/9t43vaou/config.yaml"
 DEVICE = torch.device("cuda")
 NUM_TRAIN_ROWS = None
 NUM_TEST_ROWS = None
@@ -32,6 +32,8 @@ else:
 assert isinstance(MODEL, torch.nn.Module)
 MODEL.to(DEVICE)
 MODEL.eval()
+if WEIGHT_PATH is not None:
+    MODEL.load_state_dict(torch.load(WEIGHT_PATH))
 
 print(WEIGHT_PATH)
 print(CONFIG_PATH)
@@ -82,10 +84,21 @@ sim = X_q @ X_db.T  # (Q, N)
 print("SHAPES    :", tuple(X_db.shape), tuple(X_q.shape))
 print("TARGET MOS:", mos_db.max().item(), mos_db.min().item(), mos_db.mean().item(), mos_db.std().item())
 print("PRED MOS  :", mos_q.max().item(), mos_q.min().item(), mos_q.mean().item(), mos_q.std().item())
+metrics = [(1e9, -1), (1e9, -1), (-1e9, -1)]
 for K in range(1, 65):
     _, topk_idx = torch.topk(sim, K, dim=1)
     avg_mos = mos_db[topk_idx].mean(dim=1)
-    print(f"K={K}, MAE", torch.abs(avg_mos - mos_q).mean().item())
-    print(f"K={K}, MSE", torch.abs((avg_mos - mos_q)**2).mean().item())
+    mae = torch.abs(avg_mos - mos_q).mean().item()
+    mse = torch.abs((avg_mos - mos_q)**2).mean().item()
     pcc, p_value = pearsonr(avg_mos.cpu().numpy(), mos_q.cpu().numpy())
+    if mae < metrics[0][0]:
+        metrics[0] = (mae, K)
+    if mse < metrics[1][0]:
+        metrics[1] = (mse, K)
+    if pcc > metrics[2][0]:
+        metrics[2] = (float(pcc), K)
+    print(f"K={K}, MAE", mae)
+    print(f"K={K}, MSE", mse)
     print(f"K={K}, PEAR", pcc, p_value)
+
+print("SUMMARY:", metrics)
