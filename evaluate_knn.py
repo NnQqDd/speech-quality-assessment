@@ -6,6 +6,7 @@ import librosa
 from tqdm import tqdm
 import torch
 import numpy as np
+from scipy.stats import pearsonr
 from modules.models import *
 from modules.utilities import *
 
@@ -78,11 +79,13 @@ X_q  = F.normalize(X_q,  dim=1)
 sim = X_q @ X_db.T  # (Q, N)
 
 
-print("SHAPES    :", X_db.shape, X_q.shape)
+print("SHAPES    :", tuple(X_db.shape), tuple(X_q.shape))
 print("TARGET MOS:", mos_db.max().item(), mos_db.min().item(), mos_db.mean().item(), mos_db.std().item())
 print("PRED MOS  :", mos_q.max().item(), mos_q.min().item(), mos_q.mean().item(), mos_q.std().item())
-for K in range(8, 65):
+for K in range(1, 65):
     _, topk_idx = torch.topk(sim, K, dim=1)
     avg_mos = mos_db[topk_idx].mean(dim=1)
     print(f"K={K}, MAE", torch.abs(avg_mos - mos_q).mean().item())
     print(f"K={K}, MSE", torch.abs((avg_mos - mos_q)**2).mean().item())
+    pcc, p_value = pearsonr(avg_mos.cpu().numpy(), mos_q.cpu().numpy())
+    print(f"K={K}, PEAR", pcc, p_value)
