@@ -39,36 +39,21 @@ def collate(batch):
     
     waveforms = list(waveforms)
     labels = list(labels)
-    stft_waves = []
+    if isinstance(labels[0], int):
+        labels = torch.tensor(labels, dtype=torch.long)
+    else:
+        labels = torch.tensor(labels, dtype=torch.float)
+    
     max_length = 0
     for waveform in waveforms:
         max_length = max(max_length, len(waveform))
     for i in range(len(waveforms)):
         waveforms[i] = np.pad(waveforms[i], (0, max_length - waveforms[i].shape[0]), mode='constant')
         waveforms[i] = torch.from_numpy(waveforms[i])
-        # stft_wave = extract_stft(waveforms[i])
-        # stft_wave = torch.from_numpy(stft_wave)
-        # stft_wave = stft_wave.permute(2, 1, 0)
-        # stft_waves.append(stft_wave)
-
-    # max_length = 0
-    # for i in range(len(waveforms)):
-    #     stft_wave = extract_stft(waveforms[i])
-    #     stft_wave = torch.from_numpy(stft_wave)
-    #     stft_wave = stft_wave.permute(2, 1, 0)
-    #     stft_waves.append(stft_wave)
-    #     max_length = max(max_length, stft_wave.shape[-2])
-
-    # for i in range(len(stft_waves)):
-    #     stft_waves[i] = np.pad(stft_waves[i], ((0, 0), (0, max_length - stft_waves[i].shape[-2]), (0, 0)), mode='constant')
-    #     stft_waves[i] = torch.from_numpy(stft_waves[i])
-
-    # stft_waves = torch.stack(stft_waves, dim=0)
     waveforms = torch.stack(waveforms, dim=0)
-    labels = torch.tensor(labels, dtype=torch.long)
-    return waveforms, labels
-    # return stft_waves, labels
 
+    return waveforms, labels
+    
 
 def prepare_dataloaders(ds_config, dl_config):
     datasets = dict()

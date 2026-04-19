@@ -19,7 +19,7 @@ from tqdm import tqdm
 import wandb
 
 from modules.utilities import *
-from modules.dataset import prepare_dataloaders
+from modules.dataloader import prepare_dataloaders
 
 
 def set_seed(seed):
@@ -40,7 +40,7 @@ if __name__ == "__main__":
     BASE_PATH = os.path.abspath(os.path.dirname(__file__))
     fill_path = lambda x: os.path.join(BASE_PATH, x)
 
-    config_path = fill_path('config.yaml') if args.config is None else args.config 
+    config_path = fill_path('configs/config.yaml') if args.config is None else args.config 
     with open(config_path, 'r') as f:
         config = yaml.safe_load(f)
 
@@ -79,7 +79,8 @@ if __name__ == "__main__":
 
     ModelClass = load_class(config['model']['name'])
     if 'args' in config['model'] and config['model'] is not None:
-        config['model']['args']['num_classes'] = num_classes
+        if 'num_classes' not in config['model']['args']:
+            config['model']['args']['num_classes'] = num_classes
         model = ModelClass(**config['model']['args'])
     else:
         model = ModelClass(num_classes=num_classes)
@@ -162,15 +163,19 @@ if __name__ == "__main__":
                 preds = preds.squeeze(-1)
                 loss = criterion(preds, labels)
                 valid_loss += loss.item()
-                pred_classes = preds.argmax(dim=1)   # (B,)
-                valid_acc += (pred_classes == labels).float().mean().item()
-                iter.set_postfix(loss=valid_loss/(idx + 1), acc=valid_acc*100/(idx + 1))
+                if config['trainer']['measure_extra']:
+                    pred_classes = preds.argmax(dim=1)   # (B,)
+                    valid_acc += (pred_classes == labels).float().mean().item()
+                    iter.set_postfix(loss=valid_loss/(idx + 1), acc=valid_acc*100/(idx + 1))
+                else:
+                    iter.set_postfix(loss=valid_loss/(idx + 1))
         avg_valid_loss = valid_loss / (idx + 1)
-        avg_valid_acc = valid_acc / (idx + 1)
+        if config['trainer']['measure_extra']:
+            avg_valid_acc = valid_acc / (idx + 1)
+            wandb.log({
+                "Metrics/Valid Accuracy": avg_valid_acc,
+            }, step=epoch)
 
-        wandb.log({
-            "Metrics/Valid Accuracy": avg_valid_acc,
-        }, step=epoch)
         wandb.log({
             "Metrics/Train Loss": avg_train_loss,
             "Metrics/Valid Loss": avg_valid_loss,
@@ -185,7 +190,8 @@ if __name__ == "__main__":
 
         if avg_valid_loss < best_valid_loss:
             logger.info(f'Epoch {epoch}: best {avg_valid_loss:.4f} (previous: {best_valid_loss:.4f}).')
-            logger.info(f'Epoch {epoch}: accuracy {avg_valid_acc:.4f}.')
+            if config['trainer']['measure_extra']:
+                logger.info(f'Epoch {epoch}: accuracy {avg_valid_acc:.4f}.')
             best_valid_loss = avg_valid_loss
             state_dict = model.state_dict()
             torch.save(state_dict, fill_path(f'weights/{run_id}/best.pth'))

@@ -5,30 +5,29 @@ wandb:
 
 
 datasets: # see n_speakers in trainer
-  audio_metadata: "/home/duyn/ActableDuy/speech-quality-assessment/metadata.csv"
+  audio_metadata: "/home/duyn/ActableDuy/speech-quality-assessment/metadatas/metadata.csv"
   sample_rate: 16000 
 
 
 dataloaders:
   train:  
-    num_workers: 4
-    batch_size: 8
+    num_workers: 8
+    batch_size: 16
     shuffle: True
     drop_last: False
     persistent_workers: False
   valid:
-    num_workers: 4
-    batch_size: 8
+    num_workers: 8
+    batch_size: 16
     shuffle: False 
     drop_last: False
     persistent_workers: False
 
 
 model: 
-  name: modules.models.ECAPA
+  name: modules.models.Wespeaker34
   args:
-    cls_bias: True
-    cls_norm: False
+    num_classes: 1
 
 optimizer:
   name: torch.optim.Adam
@@ -49,10 +48,10 @@ scheduler:
     min_lr: 1.0e-8
 
 criterion:
-  name: torch.nn.CrossEntropyLoss
-
+  name: torch.nn.MSELoss
 
 trainer:
   deterministic: True
+  measure_extra: False
   epochs: 64
   save_frequency: 4

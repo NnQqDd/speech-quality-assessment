@@ -51,4 +51,4 @@ if __name__ == "__main__":
         df_test.assign(split="test")
     ])
 
-    metadata_df.to_csv("metadata.csv", index=False)
+    metadata_df.to_csv("metadatas/metadata.csv", index=False)
