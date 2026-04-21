@@ -64,6 +64,7 @@ class EncoderClassifier(torch.nn.Module):
         num_classes: int,
         model_name: str,
         layer: int | None = None,
+        cls_bias: bool = True,
     ):
         super().__init__()
         if 'wavlm' in model_name:
@@ -75,7 +76,7 @@ class EncoderClassifier(torch.nn.Module):
         else:
             raise ValueError("What?")
         self.layer = layer
-        self.cls_head = nn.Linear(self.model.config.hidden_size, num_classes)
+        self.cls_head = nn.Linear(self.model.config.hidden_size, num_classes, bias=cls_bias)
 
     def forward(self, waveform, return_embed=False):
         outputs = self.model(
@@ -95,11 +96,11 @@ class EncoderClassifier(torch.nn.Module):
 
 
 class Wespeaker34(torch.nn.Module):
-    def __init__(self, num_classes, embed_dim=256):
+    def __init__(self, num_classes, embed_dim=256, cls_bias=True):
         super().__init__()
         self.model = ResNet34(feat_dim=80, embed_dim=256, pooling_func='TSTP', two_emb_layer=False)
         self.model.seg_1 = torch.nn.Linear(in_features=5120, out_features=embed_dim)
-        self.cls_head = torch.nn.Linear(embed_dim, num_classes)
+        self.cls_head = torch.nn.Linear(embed_dim, num_classes, bias=cls_bias)
         
     def compute_fbank(self,
                       waveforms,

@@ -1,6 +1,7 @@
 import os
 import pandas as pd
 from sklearn.model_selection import train_test_split
+from tqdm import tqdm
 
 
 if __name__ == "__main__":
@@ -10,48 +11,45 @@ if __name__ == "__main__":
     
     metadata_txts = [os.path.join(METADATA_DIRECTORY, d) for d in os.listdir(METADATA_DIRECTORY)]
     metadatas = []
-    for txt in metadata_txts:
+    for txt in tqdm(metadata_txts):
         with open(os.path.join(METADATA_DIRECTORY, txt), 'r') as f:
             lines = f.readlines()
             lines = [line.strip() for line in lines]
-            metadatas.append([os.path.join(AUDIO_DIRECTORY, lines[-1] + AUDIO_TYPE), float(lines[-2])])
+            metadatas.append([os.path.join(AUDIO_DIRECTORY, lines[-1] + AUDIO_TYPE), str(lines[1]), float(lines[-2])])
 
-    metadata_df = pd.DataFrame(metadatas, columns=["filepath", "label"])
+    metadata_df = pd.DataFrame(metadatas, columns=["filepath", "speaker_id", "label"])
+    print(metadata_df.nunique())
+
     metadata_df['label'] = metadata_df['label'] / metadata_df['label'].max()
+    speakers = metadata_df["speaker_id"].unique()
 
-    train_dfs = []
-    val_dfs = []
-    for label, group in metadata_df.groupby("label"):
-        train, val = train_test_split(
-            group,
-            test_size=0.1,
-            random_state=42,
-            shuffle=True
-        )
-        train_dfs.append(train)
-        val_dfs.append(val)
+    # 80% train, 20% temp
+    spk_train, spk_temp = train_test_split(
+        speakers,
+        test_size=0.2,
+        random_state=42,
+        shuffle=True
+    )
 
-    df_train = pd.concat(train_dfs).reset_index(drop=True)
-    df_val   = pd.concat(val_dfs).reset_index(drop=True)
-    
-    test_dfs = []
-    val_dfs = []
-    for label, group in df_val.groupby("label"):
-        val, test = train_test_split(
-            group,
-            test_size=0.5,
-            random_state=42,
-            shuffle=True
-        )
-        val_dfs.append(val)
-        test_dfs.append(test)
-    df_val = pd.concat(val_dfs).reset_index(drop=True)
-    df_test = pd.concat(test_dfs).reset_index(drop=True)
+    # split remaining 20% → 10% val, 10% test
+    spk_val, spk_test = train_test_split(
+        spk_temp,
+        test_size=0.5,
+        random_state=42,
+        shuffle=True
+    )
 
+    # assign splits
+    df_train = metadata_df[metadata_df["speaker_id"].isin(spk_train)]
+    df_val   = metadata_df[metadata_df["speaker_id"].isin(spk_val)]
+    df_test  = metadata_df[metadata_df["speaker_id"].isin(spk_test)]
+
+    # combine
     metadata_df = pd.concat([
         df_train.assign(split="train"),
         df_val.assign(split="valid"),
         df_test.assign(split="test")
-    ])
+    ]).reset_index(drop=True)
 
+    # save
     metadata_df.to_csv("metadatas/metadata.csv", index=False)

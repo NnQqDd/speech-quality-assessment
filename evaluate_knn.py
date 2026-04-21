@@ -13,8 +13,8 @@ from modules.utilities import *
 
 DATASET_PATH = '/home/duyn/ActableDuy/datasets/NISQA_Corpus'
 METADATA_PATH = os.path.join(DATASET_PATH, 'NISQA_corpus_file.csv')
-WEIGHT_PATH = "/home/duyn/ActableDuy/speech-quality-assessment/weights/9t43vaou/best.pth"
-CONFIG_PATH = "/home/duyn/ActableDuy/speech-quality-assessment/weights/9t43vaou/config.yaml"
+WEIGHT_PATH = "/home/duyn/ActableDuy/speech-quality-assessment/weights/9ch9ph6w/best.pth"
+CONFIG_PATH = "/home/duyn/ActableDuy/speech-quality-assessment/weights/9ch9ph6w/config.yaml"
 DEVICE = torch.device("cuda")
 NUM_TRAIN_ROWS = None
 NUM_TEST_ROWS = None
@@ -25,10 +25,10 @@ with open(CONFIG_PATH, 'r') as f:
     config = yaml.safe_load(f)
 ModelClass = load_class(config['model']['name'])
 if 'args' in config['model'] and config['model'] is not None:
-    config['model']['args']['num_classes'] = 16
+    config['model']['args']['num_classes'] = 1
     MODEL = ModelClass(**config['model']['args'])
 else:
-    MODEL = ModelClass(num_classes=16)
+    MODEL = ModelClass(num_classes=1)
 assert isinstance(MODEL, torch.nn.Module)
 MODEL.to(DEVICE)
 MODEL.eval()

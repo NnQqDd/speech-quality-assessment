@@ -28,6 +28,7 @@ model:
   name: modules.models.Wespeaker34
   args:
     num_classes: 1
+    cls_bias: False
 
 optimizer:
   name: torch.optim.Adam
